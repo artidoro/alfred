@@ -1,12 +1,15 @@
-FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
+FROM nvidia/cuda:11.0-devel-ubuntu18.04
 
 ARG USER_NAME
 ARG USER_PASSWORD
 ARG USER_ID
 ARG USER_GID
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update
 RUN apt install sudo
+RUN apt-get -y install python3-pip libxrender1 libsm6 xserver-xorg-core xorg python3-venv vim pciutils wget git kmod vim git
 RUN useradd -ms /bin/bash $USER_NAME
 RUN usermod -aG sudo $USER_NAME
 RUN yes $USER_PASSWORD | passwd $USER_NAME
@@ -20,19 +23,39 @@ WORKDIR /home/$USER_NAME
 
 # install system dependencies
 COPY ./scripts/install_deps.sh /tmp/install_deps.sh
+COPY ./scripts/install_nvidia.sh /tmp/install_nvidia.sh
 RUN yes "Y" | /tmp/install_deps.sh
 
 # setup python environment
 RUN cd $WORKDIR
-ENV VIRTUAL_ENV=/home/$USER_NAME/alfred_env
-RUN python3 -m virtualenv --python=/usr/bin/python3 $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+
+ENV MOCA_ENV=/home/$USER_NAME/moca_env
+RUN python3 -m virtualenv --python=/usr/bin/python3 $MOCA_ENV
+ENV PATH="$MOCA_ENV/bin:$PATH"
+
+RUN NVIDIA_VERSION=450.119.03 /tmp/install_nvidia.sh
+
 
 # install python requirements
-RUN pip install --upgrade pip==19.3.1
+RUN pip install --upgrade pip
 RUN pip install -U setuptools
-COPY ./requirements.txt /tmp/requirements.txt
-RUN pip install -r /tmp/requirements.txt
+COPY ./moca_requirements.txt /tmp/moca_requirements.txt
+RUN pip install -r /tmp/moca_requirements.txt
+RUN python3 -c "import ai2thor.controller; ai2thor.controller.Controller()"
+
+
+
+# ENV VIRTUAL_ENV=/home/$USER_NAME/alfred_env
+# RUN python3 -m virtualenv --python=/usr/bin/python3 $VIRTUAL_ENV
+# ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# # install python requirements
+# RUN pip install --upgrade pip
+# RUN pip install -U setuptools
+# COPY ./requirements.txt /tmp/requirements.txt
+# RUN pip install -r /tmp/requirements.txt
+# RUN python3 -c "import ai2thor.controller; ai2thor.controller.Controller()"
 
 # install GLX-Gears (for debugging)
 RUN apt-get update && apt-get install -y \

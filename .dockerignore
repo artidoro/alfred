@@ -4,3 +4,4 @@
 # Except scripts
 !/scripts
 !/requirements.txt
+!/moca_requirements.txt
